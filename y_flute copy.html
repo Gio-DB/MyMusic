@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="de">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Remeber</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Font Awesome für das Dropdown-Symbol -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <!-- PWA Optimierungen: Manifest und Theme Color -->
+  <!-- <meta name="theme-color" content="#317EFB"> -->
+  <meta name="description" content="Modernes, responsives HTML Template — anpassbar und barrierearm."> 
+  <link rel="manifest" href="/remember/manifest.json">
+
+  
+  <!-- Favicons (optional) -->
+  <link rel="icon" href="pic/favicon.ico" />
+</head>
+
+<body>
+  <div class="wrap" role="document">
+    <!-- Navigation wird dynamisch geladen -->
+    <div id="nav-placeholder"></div>
+
+    <script>
+      // Navigation aus externer Datei laden und Event dispatchen, wenn fertig
+      fetch('nav.html')
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('nav-placeholder').innerHTML = data;
+          try {
+            window.dispatchEvent(new Event('navLoaded'));
+          } catch (err) {
+            var ev = document.createEvent('Event');
+            ev.initEvent('navLoaded', true, true);
+            window.dispatchEvent(ev);
+          }
+        })
+        .catch(err => console.error('Fehler beim Laden der Navigation:', err));
+    </script>
+
+    <!-- main -->
+    <main>
+      <!-- Playlist Section: Thumbnail-Galerie + embedded player (privacy-minded) -->
+      <section id="playlist-section" class="card" aria-labelledby="playlist-title">
+        <h2 id="playlist-title">Meine Playlist</h2>
+
+        <!-- Player (privacy-enhanced domain youtube-nocookie.com) -->
+        <div class="player-wrap" style="margin-bottom:1rem;">
+          <iframe id="yt-player"
+                  src="https://www.youtube-nocookie.com/embed/cPAbx5kgCJo?rel=0&modestbranding=1&controls=1"
+                  title="YouTube Player"
+                  frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowfullscreen
+                  style="width:100%;height:360px;border-radius:12px;"></iframe>
+        </div>
+
+        <!-- Controls (optional) -->
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+          <button id="playPlaylistBtn" class="btn" title=" gesamte Playlist abspielen">Play playlist</button>
+          <button id="stopBtn" class="btn" style="background:transparent;border:1px solid rgba(0,0,0,0.06);color:var(--text);">Stop</button>
+        </div>
+
+        <!-- Thumbnail gallery (filled by JS from videoIds[]) -->
+        <div id="playlist-gallery" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.6rem;"></div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer role="contentinfo" id="kontakt">
+      © <span id="year"></span> Dein Name — <span class="muted">Made with ♥</span>
+      
+      <!-- Installations-Button (zuerst ausgeblendet) -->
+      <button id="installBtn" hidden>📲 App installieren</button>
+
+    </footer>
+
+  <!-- Minimal JS: Menü + Formular (progressive enhancement) -->
+     <!-- Script: ersetzt VIDEO_IDS durch die IDs deiner Playlist-Videos -->
+    <script>
+    /*
+      HOW TO USE:
+      - Ersetze die array videoIds mit den VIDEO_IDs deiner Playlist (z.B. ['FArPn02UylE','L0MK7qz13bU',...])
+      - Die Thumbnails werden automatisch generiert (YouTube thumbnail pattern).
+      - Klick auf ein Thumbnail lädt das Video in den Player iframe (bleibt auf dieser Seite).
+      - "Play playlist" lädt die Playlist-Embed (falls du das willst).
+    */
+
+    (function(){
+      // --- 1) Liste der Video-IDs (fülle hier die IDs aus deiner Playlist) ---
+      const videoIds = [
+        'L0MK7qz13bU', // Let It Go (Beispiel)
+        'cPAbx5kgCJo', // Hauptvideo
+        'FArPn02UylE', // Wish Upon a Star (Beispiel)
+        'L0MK7qz13bU', // Let It Go (Beispiel)
+      ];
+
+      // --- 2) Hilfsfunktionen ---
+      const gallery = document.getElementById('playlist-gallery');
+      const player = document.getElementById('yt-player');
+      const playPlaylistBtn = document.getElementById('playPlaylistBtn');
+      const stopBtn = document.getElementById('stopBtn');
+
+      function ytThumbUrl(id, size='hqdefault') {
+        // Optionen: default, mqdefault, hqdefault, sddefault, maxresdefault
+        return `https://img.youtube.com/vi/${id}/${size}.jpg`;
+      }
+
+      function loadVideo(id, opts={start:0}) {
+        // Lädt ein einzelnes Video in den iframe (privacy-enhanced domain)
+        const params = new URLSearchParams({
+          rel: 0,
+          modestbranding: 1,
+          controls: 1,
+          iv_load_policy: 3,
+          showinfo: 0,
+          start: opts.start || 0
+        });
+        player.src = `https://www.youtube-nocookie.com/embed/${id}?${params.toString()}`;
+        player.focus();
+      }
+
+      function loadPlaylist(playlistId) {
+        // Lädt eine Playlist im Player (YouTube playlist embed)
+        // Hinweis: playlist-embed kann Werbung anzeigen; nocookie reduziert Cookies.
+        const params = new URLSearchParams({
+          rel: 0,
+          modestbranding: 1,
+          controls: 1,
+          listType: 'playlist',
+          list: playlistId
+        });
+        player.src = `https://www.youtube-nocookie.com/embed?${params.toString()}`;
+        player.focus();
+      }
+
+      function stopPlayer() {
+        // Stoppt/entfernt src (setzt leere Seite) — verhindert weiteres Abspielen
+        player.src = '';
+      }
+
+      // --- 3) Thumbnails generieren ---
+      videoIds.forEach(id => {
+        const wrapper = document.createElement('div');
+        wrapper.style = 'background:white;border-radius:8px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.06);';
+
+        const img = document.createElement('img');
+        img.src = ytThumbUrl(id,'hqdefault');
+        img.alt = 'Video thumbnail';
+        img.style = 'width:100%;height:120px;object-fit:cover;display:block;cursor:pointer;';
+        img.loading = 'lazy';
+
+        const meta = document.createElement('div');
+        meta.style = 'padding:0.5rem;font-size:0.9rem;color:var(--muted);';
+        meta.textContent = id; // Platzhalter: hier könntest du Titel einfügen
+
+        // Klick -> Video laden
+        img.addEventListener('click', () => loadVideo(id));
+
+        wrapper.appendChild(img);
+        wrapper.appendChild(meta);
+        gallery.appendChild(wrapper);
+      });
+
+      // --- 4) Playlist / Stop Buttons ---
+      playPlaylistBtn && playPlaylistBtn.addEventListener('click', () => {
+        // YouTube Radio-Playlists (RD...) funktionieren leider nicht mit dem Embed-Player
+        const PLAYLIST_ID = '';
+        loadPlaylist(PLAYLIST_ID);
+      });
+
+      stopBtn && stopBtn.addEventListener('click', () => {
+        stopPlayer();
+      });
+
+      // Optional: lade erstes Video initial
+      if (videoIds.length) loadVideo(videoIds[0]);
+    })();
+    </script>
+ 
+  <script src="JavaScript.js"></script>
+</body>
+</html>

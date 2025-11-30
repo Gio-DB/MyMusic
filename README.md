@@ -1,1 +1,1 @@
-# MyMusic
+# minimal-pwa

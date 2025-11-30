@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="de">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Remember - Flöten</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Font Awesome für das Dropdown-Symbol -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <!-- PWA Optimierungen: Manifest und Theme Color -->
+  <!-- <meta name="theme-color" content="#317EFB"> -->
+  <meta name="description" content="Modernes, responsives HTML Template — anpassbar und barrierearm."> 
+  <link rel="manifest" href="/remember/manifest.json">
+
+  
+  <!-- Favicons (optional) -->
+  <link rel="icon" href="pic/favicon.ico" />
+  <!-- PDF.js for reliable PDF rendering and zoom-to-fit -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+</head>
+
+<body>
+  <div class="wrap" role="document">
+    <!-- Navigation wird dynamisch geladen -->
+    <div id="nav-placeholder"></div>
+
+    <script>
+      // Navigation aus externer Datei laden und Event dispatchen, wenn fertig
+      fetch('nav.html')
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('nav-placeholder').innerHTML = data;
+          try {
+            window.dispatchEvent(new Event('navLoaded'));
+          } catch (err) {
+            var ev = document.createEvent('Event');
+            ev.initEvent('navLoaded', true, true);
+            window.dispatchEvent(ev);
+          }
+        })
+        .catch(err => console.error('Fehler beim Laden der Navigation:', err));
+    </script>
+
+    <!-- main -->
+    <main>
+      <!-- Playlist Section: Thumbnail-Galerie + embedded player (privacy-minded) -->
+      <section id="playlist-section" class="card" aria-labelledby="playlist-title">
+        <h2 id="playlist-title">Meine Playlist</h2>
+
+        <!-- Player (privacy-enhanced domain youtube-nocookie.com) -->
+        <div class="player-wrap" style="margin-bottom:1rem;">
+          <iframe id="yt-player"
+                  src="https://www.youtube-nocookie.com/embed/cPAbx5kgCJo?rel=0&modestbranding=1&controls=1"
+                  title="YouTube Player"
+                  frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowfullscreen
+                  style="width:100%;height:360px;border-radius:12px;"></iframe>
+        </div>
+
+        <!-- PDF Viewer Section (PDF.js) -->
+        <div id="pdf-section" style="display:none;margin-bottom:1rem;">
+          <div id="pdf-controls" style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
+            <button id="prevPage" class="btn">◀</button>
+            <button id="nextPage" class="btn">▶</button>
+            <span id="pageInfo">Seite <span id="pageNum">1</span> / <span id="pageCount">1</span></span>
+            <button id="fitPage" class="btn">Fit Breite</button>
+            <a id="openPdfNew" class="btn" target="_blank" rel="noopener">In neuem Tab öffnen</a>
+            <span id="pdfStatus" style="margin-left:0.5rem;color:#a00;font-size:0.95em"></span>
+          </div>
+          <div id="pdf-renderer" style="width:100%;border:1px solid #eee;border-radius:8px;padding:0.25rem;">
+            <canvas id="pdf-canvas" style="width:100%;display:block;"></canvas>
+          </div>
+        </div>
+        <button id="togglePdfBtn" class="btn" style="margin-bottom:1rem;display:none;">PDF anzeigen</button>
+
+        <!-- Controls (optional) -->
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+          <button id="playPlaylistBtn" class="btn" title=" gesamte Playlist abspielen">Play playlist</button>
+          <button id="stopBtn" class="btn" style="background:transparent;border:1px solid rgba(0,0,0,0.06);color:var(--text);">Stop</button>
+        </div>
+
+        <!-- Thumbnail gallery (filled by JS from videoIds[]) -->
+        <div id="playlist-gallery" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.6rem;"></div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer role="contentinfo" id="kontakt">
+      © <span id="year"></span> Dein Name — <span class="muted">Made with ♥</span>
+      
+      <!-- Installations-Button (zuerst ausgeblendet) -->
+      <button id="installBtn" hidden>📲 App installieren</button>
+
+    </footer>
+
+  <!-- Minimal JS: Menü + Formular (progressive enhancement) -->
+     <!-- Script: ersetzt VIDEO_IDS durch die IDs deiner Playlist-Videos -->
+    <script>
+    /*
+      HOW TO USE:
+      - Ersetze die array videoIds mit den VIDEO_IDs deiner Playlist (z.B. ['FArPn02UylE','L0MK7qz13bU',...])
+      - Die Thumbnails werden automatisch generiert (YouTube thumbnail pattern).
+      - Klick auf ein Thumbnail lädt das Video in den Player iframe (bleibt auf dieser Seite).
+      - "Play playlist" lädt die Playlist-Embed (falls du das willst).
+    */
+
+    (function(){
+  // PDF Viewer Elements (PDF.js)
+  const pdfSection = document.getElementById('pdf-section');
+  const togglePdfBtn = document.getElementById('togglePdfBtn');
+  const pdfCanvas = document.getElementById('pdf-canvas');
+  const pdfRenderer = document.getElementById('pdf-renderer');
+  const prevPageBtn = document.getElementById('prevPage');
+  const nextPageBtn = document.getElementById('nextPage');
+  const pageNumSpan = document.getElementById('pageNum');
+  const pageCountSpan = document.getElementById('pageCount');
+  const fitPageBtn = document.getElementById('fitPage');
+  const openPdfNew = document.getElementById('openPdfNew');
+  let currentPdfUrl = '';
+
+  // PDF.js state
+  let pdfDoc = null;
+  let pageNum = 1;
+  let pageRendering = false;
+  let pageNumPending = null;
+
+  // Ensure pdf.js worker is set
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  }
+
+  function getDirectPdfUrl(url) {
+    const gd = extractGDriveId(url);
+    if (gd) return `https://drive.google.com/uc?export=download&id=${gd}`;
+    if (/\.pdf(\?|#|$)/i.test(url)) return url;
+    return `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+  }
+
+  async function loadPdfViewer(url) {
+    // Load and render PDF using PDF.js; url should be a direct PDF endpoint when possible
+    const direct = getDirectPdfUrl(url);
+    openPdfNew.href = url || direct;
+    try {
+      const loadingTask = pdfjsLib.getDocument(direct);
+      pdfDoc = await loadingTask.promise;
+      pageCountSpan.textContent = pdfDoc.numPages;
+      pageNum = 1;
+      // ensure canvas visible
+      pdfCanvas.style.display = '';
+      document.getElementById('pdfStatus').textContent = '';
+      renderPage(pageNum);
+    } catch (err) {
+      console.error('PDF.js load error', err);
+      // fallback: show message and keep 'open in new tab' available
+      openPdfNew.href = url;
+      document.getElementById('pdfStatus').textContent = 'Konnte nicht gerendert werden (CORS/Sharing). Öffne in neuem Tab.';
+      // hide canvas to avoid confusing empty render
+      pdfCanvas.style.display = 'none';
+    }
+  }
+
+  function renderPage(num) {
+    pageRendering = true;
+    pdfDoc.getPage(num).then(function(page) {
+      const canvas = pdfCanvas;
+      const ctx = canvas.getContext('2d');
+      // calculate scale to fit container width
+      const containerWidth = pdfRenderer.clientWidth - 8; // small padding
+      const unscaledViewport = page.getViewport({scale: 1});
+      const scale = containerWidth / unscaledViewport.width;
+      const viewport = page.getViewport({scale});
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width = '100%';
+      const renderContext = {
+        canvasContext: ctx,
+        viewport: viewport
+      };
+      const renderTask = page.render(renderContext);
+      renderTask.promise.then(function() {
+        pageRendering = false;
+        pageNumSpan.textContent = num;
+        if (pageNumPending !== null) {
+          renderPage(pageNumPending);
+          pageNumPending = null;
+        }
+      });
+    });
+  }
+
+  function queueRenderPage(num) {
+    if (pageRendering) {
+      pageNumPending = num;
+    } else {
+      renderPage(num);
+    }
+  }
+
+  prevPageBtn && prevPageBtn.addEventListener('click', function() {
+    if (!pdfDoc) return;
+    if (pageNum <= 1) return;
+    pageNum--;
+    queueRenderPage(pageNum);
+  });
+  nextPageBtn && nextPageBtn.addEventListener('click', function() {
+    if (!pdfDoc) return;
+    if (pageNum >= pdfDoc.numPages) return;
+    pageNum++;
+    queueRenderPage(pageNum);
+  });
+
+  // Fit button re-renders current page (useful after resize)
+  fitPageBtn && fitPageBtn.addEventListener('click', function() {
+    if (!pdfDoc) return;
+    queueRenderPage(pageNum);
+  });
+
+  // Re-fit on window resize (debounced)
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      if (pdfDoc) queueRenderPage(pageNum);
+    }, 200);
+  });
+
+  // PDF toggle button (registered once)
+  togglePdfBtn && togglePdfBtn.addEventListener('click', function() {
+    if (pdfSection.style.display === 'none' || pdfSection.style.display === '') {
+      pdfSection.style.display = '';
+      togglePdfBtn.textContent = 'PDF ausblenden';
+      // ensure current page is rendered at correct size
+      if (pdfDoc) queueRenderPage(pageNum);
+    } else {
+      pdfSection.style.display = 'none';
+      togglePdfBtn.textContent = 'PDF anzeigen';
+    }
+  });
+      // --- 1) Lade Video-Daten aus JSON ---
+      let videos = [];
+      fetch('videos.json')
+        .then(response => response.json())
+        .then(data => {
+          videos = data;
+          renderGallery();
+          if (videos.length) loadVideo(videos[0]);
+        });
+
+      // --- 2) Hilfsfunktionen ---
+      const gallery = document.getElementById('playlist-gallery');
+      const player = document.getElementById('yt-player');
+      const playPlaylistBtn = document.getElementById('playPlaylistBtn');
+      const stopBtn = document.getElementById('stopBtn');
+
+      // Erkennt den Videodienst aus der ID oder URL
+      function detectService(input) {
+        if (!input) return null;
+        if (input.includes('drive.google.com')) return 'gdrive';
+        if (input.includes('vimeo.com')) return 'vimeo';
+        if (input.includes('youtu')) return 'youtube';
+        if (input.match(/^[a-zA-Z0-9_-]{11}$/)) return 'youtube'; // YouTube ID format
+        return 'youtube'; // Standard: YouTube
+      }
+
+      // Extrahiert die Datei-ID aus einer Google Drive URL
+      function extractGDriveId(url) {
+        const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        return match ? match[1] : null;
+      }
+
+      // Extrahiert die Datei-ID aus einer Vimeo URL
+      function extractVimeoId(url) {
+        const match = url.match(/(?:vimeo\.com\/)(\d+)/);
+        return match ? match[1] : null;
+      }
+
+      // YouTube Thumbnail URL
+      function ytThumbUrl(id, size='hqdefault') {
+        return `https://img.youtube.com/vi/${id}/${size}.jpg`;
+      }
+
+      // Google Drive Thumbnail URL
+      function gdriveThumbUrl(id) {
+        return `https://drive.google.com/thumbnail?id=${id}&sz=w320`;
+      }
+
+      // Vimeo Thumbnail (via API - alternative: static placeholder)
+      function vimeoThumbUrl(id) {
+        return `https://vimeo.com/api/v2/video/${id}.json`; // Async fetch erforderlich
+      }
+
+      // Lädt Video basierend auf Video-Objekt (vereinfachte, robustere Logik)
+      function buildEmbedForVideoUrl(input, opts={start:0}) {
+        const service = detectService(input);
+        let src = '';
+        if (service === 'gdrive') {
+          const fileId = extractGDriveId(input);
+          if (fileId) src = `https://drive.google.com/file/d/${fileId}/preview`;
+        } else if (service === 'vimeo') {
+          const vimeoId = extractVimeoId(input);
+          if (vimeoId) src = `https://player.vimeo.com/video/${vimeoId}?h=&title=0&byline=0&portrait=0`;
+        } else if (service === 'youtube') {
+          // extract YouTube ID from many URL patterns or accept raw ID
+          let id = null;
+          const ytShort = input.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+          const ytWatch = input.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+          const ytEmbed = input.match(/embed\/([a-zA-Z0-9_-]{11})/);
+          if (input.match(/^[a-zA-Z0-9_-]{11}$/)) id = input;
+          else if (ytShort) id = ytShort[1];
+          else if (ytWatch) id = ytWatch[1];
+          else if (ytEmbed) id = ytEmbed[1];
+          if (id) {
+            const params = new URLSearchParams({
+              rel: 0,
+              modestbranding: 1,
+              controls: 1,
+              iv_load_policy: 3,
+              showinfo: 0,
+              start: opts.start || 0
+            });
+            src = `https://www.youtube-nocookie.com/embed/${id}?${params.toString()}`;
+          }
+        }
+        return {service, src};
+      }
+
+      function loadVideo(videoObj, opts={start:0}) {
+        if (!videoObj) return;
+        const input = videoObj.url;
+        const {service, src} = buildEmbedForVideoUrl(input, opts);
+        if (src) {
+          player.src = src;
+          player.focus();
+        } else {
+          // fallback: open original URL in new tab
+          window.open(input, '_blank', 'noopener');
+        }
+
+        // PDF logic (use PDF.js)
+        if (videoObj.pdf) {
+          currentPdfUrl = videoObj.pdf;
+          togglePdfBtn.style.display = '';
+          openPdfNew.href = currentPdfUrl;
+          // Load via PDF.js (it will normalize drive links / direct pdfs)
+          loadPdfViewer(currentPdfUrl);
+        } else {
+          currentPdfUrl = '';
+          togglePdfBtn.style.display = 'none';
+          pdfSection.style.display = 'none';
+          // clear canvas
+          if (pdfCanvas) {
+            const ctx = pdfCanvas.getContext('2d');
+            ctx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
+          }
+          pdfDoc = null;
+        }
+      }
+
+      function loadPlaylist(playlistId) {
+        // Lädt eine Playlist im Player (YouTube playlist embed)
+        const params = new URLSearchParams({
+          rel: 0,
+          modestbranding: 1,
+          controls: 1,
+          listType: 'playlist',
+          list: playlistId
+        });
+        player.src = `https://www.youtube-nocookie.com/embed?${params.toString()}`;
+        player.focus();
+      }
+
+      function stopPlayer() {
+        // Stoppt/entfernt src
+        player.src = '';
+      }
+
+      // --- 3) Galerie und Thumbnails aus JSON ---
+      function renderGallery() {
+        gallery.innerHTML = '';
+        videos.forEach(video => {
+          const wrapper = document.createElement('div');
+          wrapper.style = 'background:white;border-radius:8px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.06);';
+
+          const img = document.createElement('img');
+          const service = detectService(video.url);
+          let thumbUrl = 'pic/default-thumb.jpg';
+          if (service === 'gdrive') {
+            const fileId = extractGDriveId(video.url);
+            if (fileId) thumbUrl = gdriveThumbUrl(fileId);
+          } else if (service === 'vimeo') {
+            const vimeoId = extractVimeoId(video.url);
+            thumbUrl = `https://i.vimeocdn.com/video/${vimeoId}.jpg`;
+          } else {
+            // YouTube
+            const ytId = video.url.match(/(?:v=|\/embed\/)([a-zA-Z0-9_-]{11})/);
+            const id = ytId ? ytId[1] : video.url;
+            thumbUrl = ytThumbUrl(id, 'hqdefault');
+          }
+          img.src = thumbUrl;
+          img.alt = 'Video vorschau';
+          img.style = 'width:100%;height:120px;object-fit:cover;display:block;cursor:pointer;';
+          img.loading = 'lazy';
+          img.referrerPolicy = 'no-referrer';
+          img.addEventListener('error', () => {
+            img.src = 'pic/default-thumb.jpg';
+          });
+
+          // Meta: Titel, PDF-Link, Lyrics
+          const meta = document.createElement('div');
+          meta.style = 'padding:0.5rem;font-size:0.9rem;color:var(--muted);';
+          meta.innerHTML = `<strong>${video.title}</strong><br>`;
+          if (video.pdf) meta.innerHTML += `<a href="${video.pdf}" target="_blank">PDF/Dokument</a><br>`;
+          if (video.lyrics) meta.innerHTML += `<span style="font-size:0.85em;color:#888;">${video.lyrics}</span>`;
+
+          img.addEventListener('click', () => loadVideo(video));
+
+          wrapper.appendChild(img);
+          wrapper.appendChild(meta);
+          gallery.appendChild(wrapper);
+        });
+      }
+
+      // --- 4) Playlist / Stop Buttons ---
+      playPlaylistBtn && playPlaylistBtn.addEventListener('click', () => {
+        // YouTube Radio-Playlists (RD...) funktionieren leider nicht mit dem Embed-Player
+        const PLAYLIST_ID = '';
+        loadPlaylist(PLAYLIST_ID);
+      });
+
+      stopBtn && stopBtn.addEventListener('click', () => {
+        stopPlayer();
+      });
+
+  // Das initiale Laden des ersten Videos erfolgt nach fetch
+    })();
+    </script>
+ 
+  <script src="JavaScript.js"></script>
+</body>
+</html>
