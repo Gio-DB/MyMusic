@@ -1,18 +1,18 @@
 const CACHE_NAME = "pwa-cache-v1";
 const urlsToCache = [
-  "/remember/index.html",
-  "/remember/style.css",
-  "/remember/JavaScript.js",
-  "/remember/manifest.json",
-  "/remember/offline.html",
-  "/remember/pic/favicon.ico",
-  "/remember/nav.html",
-  "/remember/pic/icon-192.png",
-  "/remember/pic/icon-512.png",
-  "/remember/pic/icon-192-maskable.png",
-  "/remember/pic/icon-512-maskable.png",
-  "/remember/y_LuSongs.html",
-  "/remember/y_flute.html"
+  "/MyMusic/index.html",
+  "/MyMusic/style.css",
+  "/MyMusic/JavaScript.js",
+  "/MyMusic/manifest.json",
+  "/MyMusic/offline.html",
+  "/MyMusic/pic/favicon.ico",
+  "/MyMusic/nav.html",
+  "/MyMusic/pic/icon-192.png",
+  "/MyMusic/pic/icon-512.png",
+  "/MyMusic/pic/icon-192-maskable.png",
+  "/MyMusic/pic/icon-512-maskable.png",
+  "/MyMusic/y_LuSongs.html",
+  "/MyMusic/y_flute.html"
 ];
 
 
@@ -49,7 +49,7 @@ self.addEventListener("fetch", event => {
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, response.clone()));
           return response;
         })
-        .catch(() => caches.match(event.request).then(res => res || caches.match("/remember/offline.html")))
+        .catch(() => caches.match(event.request).then(res => res || caches.match("/MyMusic/offline.html")))
     );
   } else {
     event.respondWith(
