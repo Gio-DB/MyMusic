@@ -110,6 +110,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const linkPage = href.split('/').pop();
     if (linkPage === currentPage) link.classList.add('active');
   });
+
+  // 4) Load songs dynamically for specific pages
+  if (currentPage === 'y_LuSongs.html') {
+    loadSongs('y_LuSongs.json');
+    initPdfModal();
+  } else if (currentPage === 'y_flute.html') {
+    loadSongs('y_flute.json');
+    initPdfModal();
+  }
 });
 
 
@@ -157,7 +166,8 @@ document.addEventListener('click', (e) => {
   if (!e.target.classList) return;
   if (e.target.classList.contains('toggle-lyrics')) {
     const btn = e.target;
-    const lyrics = btn.previousElementSibling;
+    const card = btn.closest('.music-card');
+    const lyrics = card.querySelector('.lyrics-full');
     if (!lyrics) return;
 
     if (lyrics.style.display === 'none' || lyrics.style.display === '') {
@@ -168,4 +178,94 @@ document.addEventListener('click', (e) => {
       btn.textContent = 'Lyrics anzeigen';
     }
   }
+
+  if (e.target.classList.contains('open-pdf')) {
+    const btn = e.target;
+    const pdfUrl = btn.getAttribute('data-pdf');
+    if (pdfUrl) {
+      const iframe = document.getElementById('pdf-iframe');
+      iframe.src = pdfUrl;
+      document.getElementById('pdf-modal').style.display = 'block';
+    }
+  }
 });
+
+
+/* ==================================================
+   Song Pages Functionality (y_LuSongs.html, y_flute.html)
+   - Dynamic song loading from JSON
+   - Lyrics toggle
+   - PDF modal popup
+   ==================================================
+*/
+
+/* ----------------------------------
+   Load Songs from JSON for specific pages
+---------------------------------- */
+function loadSongs(jsonFile) {
+  fetch(jsonFile)
+    .then(response => response.json())
+    .then(data => {
+      const grid = document.getElementById('music-grid');
+      if (!grid) return;
+      data.forEach(song => {
+        const card = createSongCard(song);
+        grid.appendChild(card);
+      });
+    })
+    .catch(err => console.error('Fehler beim Laden der Songs:', err));
+}
+
+function createSongCard(song) {
+  const div = document.createElement('div');
+  div.className = 'feature feature-card music-card';
+
+  // Full lyrics with line breaks
+  const fullLyrics = song.lyrics.replace(/\n/g, '<br>');
+
+  div.innerHTML = `
+    <h3 class="feature-title">${song.title}</h3>
+    <div class="video-container">
+      <iframe src="${song.url}" 
+              title="${song.title}" 
+              frameborder="0" 
+              allow="autoplay; encrypted-media" 
+              allowfullscreen></iframe>
+    </div>
+    <div style="display: flex; gap: 10px; margin: 10px 0;">
+      <button class="btn btn-small toggle-lyrics">Lyrics anzeigen</button>
+      <button class="btn btn-small open-pdf" data-pdf="${song.pdf}">PDF öffnen</button>
+    </div>
+    <div class="feature-content">
+      <div class="lyrics-full muted" style="display:none;">${fullLyrics}</div>
+    </div>
+  `;
+
+  return div;
+}
+
+/* ----------------------------------
+   PDF Modal for song pages
+---------------------------------- */
+function initPdfModal() {
+  const modal = document.createElement('div');
+  modal.id = 'pdf-modal';
+  modal.style.display = 'none';
+  modal.innerHTML = `
+    <div class="modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+      <div class="modal-content" style="width: 100%; height: 100vh; background: white; position: relative; border: 3px solid #333; border-radius: 12px; overflow: hidden;">
+        <button class="close-modal" style="position: absolute; top: 10px; right: 10px; font-size: 24px; border: none; background: none; cursor: pointer; z-index: 1001; color: #333;">&times;</button>
+        <iframe id="pdf-iframe" style="width: 100%; height: 100%; border: none;"></iframe>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // Close modal event
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('close-modal') || e.target.classList.contains('modal-overlay')) {
+      document.getElementById('pdf-modal').style.display = 'none';
+      document.getElementById('pdf-iframe').src = ''; // clear src
+    }
+  });
+}
