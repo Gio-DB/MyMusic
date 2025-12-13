@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="de">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Remember</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Font Awesome für das Dropdown-Symbol -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <meta name="description" content="Modernes, responsives HTML Template — anpassbar und barrierearm."> 
+  <link rel="manifest" href="manifest.json">
+
+  <link rel="icon" href="pic/favicon.ico" />
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    .wrap {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .two-frames-wrapper {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      width: 100%;
+      gap: 0.5rem;
+    }
+
+    /* Top-Frame: Video/Audio */
+    .top-frame {
+      flex: 0 1 25%;  /* mindestens 25% der Höhe */
+    }
+
+    /* Bottom-Frame: PDF */
+    .bottom-frame {
+      flex: 1 1 75%;  /* Rest einnehmen, mindestens 75% */
+      min-height: 75vh; /* Minimum 75% der Viewport-Höhe */
+    }
+
+    /* Player und PDF füllen die Frames */
+    .top-frame video, .bottom-frame iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* Responsive Anpassung für kleine Bildschirme */
+    @media (max-width: 600px) {
+      .two-frames-wrapper {
+        gap: 0.25rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap" role="document">
+
+    <!-- Navigation -->
+    <div id="nav-placeholder"></div>
+
+    <script>
+      fetch('nav.html')
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('nav-placeholder').innerHTML = data;
+          try {
+            window.dispatchEvent(new Event('navLoaded'));
+          } catch (err) {
+            var ev = document.createEvent('Event');
+            ev.initEvent('navLoaded', true, true);
+            window.dispatchEvent(ev);
+          }
+        })
+        .catch(err => console.error('Fehler beim Laden der Navigation:', err));
+    </script>
+
+    <!-- main -->
+    <main>
+      <div class="two-frames-wrapper">
+
+        <!-- OBERES FRAME: Video / Audio -->
+        <div class="top-frame">
+          <video controls autoplay style="max-height:100%;">
+            <!-- Video-Datei -->
+            <source src="Blockfloete/01_flute.mp4" type="video/mp4">
+            <!-- Audio-Fallback -->
+            <source src="Blockfloete/01_audio.mp3" type="audio/mpeg">
+            Dein Browser unterstützt dieses Format nicht.
+          </video>
+        </div>
+
+        <!-- UNTERES FRAME: PDF -->
+        <div class="bottom-frame">
+          <iframe 
+            src="Blockfloete/01_Get_Started_With_Smallpdf.pdf"
+            allow="fullscreen">
+          </iframe>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer role="contentinfo" id="kontakt" style="padding:12px; background:#f3f3f3">
+      © <span id="year"></span> Dein Name — <span class="muted">Made with ♥</span>
+      <button id="installBtn" hidden>📲 App installieren</button>
+    </footer>
+
+    <script>
+      document.getElementById('year').textContent = new Date().getFullYear();
+    </script>
+
+    <script src="JavaScript.js"></script>
+  </div>
+</body>
+</html>

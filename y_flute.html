@@ -86,7 +86,9 @@
         <div id="playlist-gallery" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.6rem;"></div>
       </section>
 
-    </main>
+      <iframe src="https://drive.google.com/file/d/1JFNFf7lJyyy2K-oWGuFW6H22r3lqo6hf/preview" width="100%" height="600" allow="fullscreen"></iframe>
+
+      </main>
 
     <!-- Footer -->
     <footer role="contentinfo" id="kontakt">
@@ -135,31 +137,55 @@
 
   function getDirectPdfUrl(url) {
     const gd = extractGDriveId(url);
-    if (gd) return `https://drive.google.com/uc?export=download&id=${gd}`;
+    if (gd) {
+      // Use Google Drive viewer for better compatibility
+      return `https://drive.google.com/uc?export=view&id=${gd}`;
+    }
     if (/\.pdf(\?|#|$)/i.test(url)) return url;
-    return `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+    return url;
   }
 
   async function loadPdfViewer(url) {
-    // Load and render PDF using PDF.js; url should be a direct PDF endpoint when possible
+    // Load PDF via responsive iframe
     const direct = getDirectPdfUrl(url);
     openPdfNew.href = url || direct;
+    
     try {
-      const loadingTask = pdfjsLib.getDocument(direct);
-      pdfDoc = await loadingTask.promise;
-      pageCountSpan.textContent = pdfDoc.numPages;
-      pageNum = 1;
-      // ensure canvas visible
-      pdfCanvas.style.display = '';
-      document.getElementById('pdfStatus').textContent = '';
-      renderPage(pageNum);
-    } catch (err) {
-      console.error('PDF.js load error', err);
-      // fallback: show message and keep 'open in new tab' available
-      openPdfNew.href = url;
-      document.getElementById('pdfStatus').textContent = 'Konnte nicht gerendert werden (CORS/Sharing). Öffne in neuem Tab.';
-      // hide canvas to avoid confusing empty render
+      // Hide PDF.js controls and canvas
       pdfCanvas.style.display = 'none';
+      document.getElementById('pdfStatus').textContent = '';
+      
+      // Create responsive iframe for direct PDF display
+      const iframeHtml = `<iframe src="${direct}" width="100%" height="600" allow="fullscreen"></iframe>`;
+      pdfRenderer.innerHTML = iframeHtml;
+      pdfRenderer.style.border = '1px solid #eee';
+      pdfRenderer.style.borderRadius = '8px';
+      pdfRenderer.style.overflow = 'hidden';
+      
+      // Make iframe responsive
+      const iframe = pdfRenderer.querySelector('iframe');
+      if (iframe) {
+        iframe.style.width = '100%';
+        iframe.style.height = '600px';
+        iframe.style.display = 'block';
+      }
+      
+      // Try to get page count with PDF.js as fallback info
+      try {
+        const loadingTask = pdfjsLib.getDocument({
+          url: direct,
+          withCredentials: false
+        });
+        pdfDoc = await loadingTask.promise;
+        pageCountSpan.textContent = pdfDoc.numPages;
+      } catch (e) {
+        // If PDF.js can't load, just hide the page controls
+        document.getElementById('pdf-controls').style.display = 'none';
+      }
+    } catch (err) {
+      console.error('PDF load error', err);
+      document.getElementById('pdfStatus').textContent = 'PDF konnte nicht geladen werden.';
+      pdfRenderer.innerHTML = `<div style="padding: 1rem; color: #a00;">PDF konnte nicht angezeigt werden. <a href="${url}" target="_blank">In neuem Tab öffnen</a></div>`;
     }
   }
 
@@ -268,8 +294,13 @@
 
       // Extrahiert die Datei-ID aus einer Google Drive URL
       function extractGDriveId(url) {
-        const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-        return match ? match[1] : null;
+        // Try /d/ pattern first (open/edit links)
+        let match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (match) return match[1];
+        // Try id= pattern (view links with sharing)
+        match = url.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+        if (match) return match[1];
+        return null;
       }
 
       // Extrahiert die Datei-ID aus einer Vimeo URL
