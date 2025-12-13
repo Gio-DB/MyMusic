@@ -111,9 +111,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (linkPage === currentPage) link.classList.add('active');
   });
 
-  // 4) Load songs dynamically for y_LuSongs.html
+  // 4) Load songs dynamically for specific pages
   if (currentPage === 'y_LuSongs.html') {
-    loadSongs();
+    loadSongs('y_LuSongs.json');
+    initPdfModal();
+  } else if (currentPage === 'y_flute.html') {
+    loadSongs('y_flute.json');
     initPdfModal();
   }
 });
@@ -188,11 +191,19 @@ document.addEventListener('click', (e) => {
 });
 
 
+/* ==================================================
+   Song Pages Functionality (y_LuSongs.html, y_flute.html)
+   - Dynamic song loading from JSON
+   - Lyrics toggle
+   - PDF modal popup
+   ==================================================
+*/
+
 /* ----------------------------------
-   Load Songs from JSON for y_LuSongs.html
+   Load Songs from JSON for specific pages
 ---------------------------------- */
-function loadSongs() {
-  fetch('y_LuSongs.json')
+function loadSongs(jsonFile) {
+  fetch(jsonFile)
     .then(response => response.json())
     .then(data => {
       const grid = document.getElementById('music-grid');
@@ -234,7 +245,7 @@ function createSongCard(song) {
 }
 
 /* ----------------------------------
-   PDF Modal for y_LuSongs.html
+   PDF Modal for song pages
 ---------------------------------- */
 function initPdfModal() {
   const modal = document.createElement('div');

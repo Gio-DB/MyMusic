@@ -11,8 +11,9 @@ const urlsToCache = [
   "/MyMusic/pic/icon-512.png",
   "/MyMusic/pic/icon-192-maskable.png",
   "/MyMusic/pic/icon-512-maskable.png",
-  "/MyMusic/videos.json",
+  "/MyMusic/test.html",
   "/MyMusic/y_flute.html",
+  "/MyMusic/y_flute.json",
   "/MyMusic/y_LuSongs.html",
   "/MyMusic/y_LuSongs.json"
 ];
