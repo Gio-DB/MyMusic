@@ -110,6 +110,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const linkPage = href.split('/').pop();
     if (linkPage === currentPage) link.classList.add('active');
   });
+
+  // 4) Load songs dynamically for y_LuSongs.html
+  if (currentPage === 'y_LuSongs.html') {
+    loadSongs();
+  }
 });
 
 
@@ -157,7 +162,8 @@ document.addEventListener('click', (e) => {
   if (!e.target.classList) return;
   if (e.target.classList.contains('toggle-lyrics')) {
     const btn = e.target;
-    const lyrics = btn.previousElementSibling;
+    const card = btn.closest('.music-card');
+    const lyrics = card.querySelector('.lyrics-full');
     if (!lyrics) return;
 
     if (lyrics.style.display === 'none' || lyrics.style.display === '') {
@@ -169,3 +175,46 @@ document.addEventListener('click', (e) => {
     }
   }
 });
+
+
+/* ----------------------------------
+   Load Songs from JSON for y_LuSongs.html
+---------------------------------- */
+function loadSongs() {
+  fetch('y_LuSongs.json')
+    .then(response => response.json())
+    .then(data => {
+      const grid = document.getElementById('music-grid');
+      if (!grid) return;
+      data.forEach(song => {
+        const card = createSongCard(song);
+        grid.appendChild(card);
+      });
+    })
+    .catch(err => console.error('Fehler beim Laden der Songs:', err));
+}
+
+function createSongCard(song) {
+  const div = document.createElement('div');
+  div.className = 'feature feature-card music-card';
+
+  // Full lyrics with line breaks
+  const fullLyrics = song.lyrics.replace(/\n/g, '<br>');
+
+  div.innerHTML = `
+    <h3 class="feature-title">${song.title}</h3>
+    <div class="video-container">
+      <iframe src="${song.url}" 
+              title="${song.title}" 
+              frameborder="0" 
+              allow="autoplay; encrypted-media" 
+              allowfullscreen></iframe>
+    </div>
+    <button class="btn btn-small toggle-lyrics">Lyrics anzeigen</button>
+    <div class="feature-content">
+      <div class="lyrics-full muted" style="display:none;">${fullLyrics}</div>
+    </div>
+  `;
+
+  return div;
+}
