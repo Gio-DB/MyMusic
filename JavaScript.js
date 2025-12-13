@@ -114,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 4) Load songs dynamically for y_LuSongs.html
   if (currentPage === 'y_LuSongs.html') {
     loadSongs();
+    initPdfModal();
   }
 });
 
@@ -174,6 +175,16 @@ document.addEventListener('click', (e) => {
       btn.textContent = 'Lyrics anzeigen';
     }
   }
+
+  if (e.target.classList.contains('open-pdf')) {
+    const btn = e.target;
+    const pdfUrl = btn.getAttribute('data-pdf');
+    if (pdfUrl) {
+      const iframe = document.getElementById('pdf-iframe');
+      iframe.src = pdfUrl;
+      document.getElementById('pdf-modal').style.display = 'block';
+    }
+  }
 });
 
 
@@ -210,11 +221,40 @@ function createSongCard(song) {
               allow="autoplay; encrypted-media" 
               allowfullscreen></iframe>
     </div>
-    <button class="btn btn-small toggle-lyrics">Lyrics anzeigen</button>
+    <div style="display: flex; gap: 10px; margin: 10px 0;">
+      <button class="btn btn-small toggle-lyrics">Lyrics anzeigen</button>
+      <button class="btn btn-small open-pdf" data-pdf="${song.pdf}">PDF öffnen</button>
+    </div>
     <div class="feature-content">
       <div class="lyrics-full muted" style="display:none;">${fullLyrics}</div>
     </div>
   `;
 
   return div;
+}
+
+/* ----------------------------------
+   PDF Modal for y_LuSongs.html
+---------------------------------- */
+function initPdfModal() {
+  const modal = document.createElement('div');
+  modal.id = 'pdf-modal';
+  modal.style.display = 'none';
+  modal.innerHTML = `
+    <div class="modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+      <div class="modal-content" style="width: 100%; height: 100vh; background: white; position: relative; border: 3px solid #333; border-radius: 12px; overflow: hidden;">
+        <button class="close-modal" style="position: absolute; top: 10px; right: 10px; font-size: 24px; border: none; background: none; cursor: pointer; z-index: 1001; color: #333;">&times;</button>
+        <iframe id="pdf-iframe" style="width: 100%; height: 100%; border: none;"></iframe>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // Close modal event
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('close-modal') || e.target.classList.contains('modal-overlay')) {
+      document.getElementById('pdf-modal').style.display = 'none';
+      document.getElementById('pdf-iframe').src = ''; // clear src
+    }
+  });
 }
